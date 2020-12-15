@@ -37,13 +37,13 @@ class Playlist2Vec:
 
     def register_w2v(self, w2v_model):
         self.w2v_model = w2v_model
-        self.p2v_model = WordEmbeddingsKeyedVectors(self.w2v_model.trainables.layer1_size)
+        self.p2v_model = WordEmbeddingsKeyedVectors(self.w2v_model.vector_size)
 
     def train_w2v(self, min_count = 3, size = 128, window = 210, negative = 5, sg = 1, hs = 0, workers = 1):
         # workers = 1 ; for consistency
         start = time.time()
         self.w2v_model = Word2Vec(sentences = self.corpus, min_count= min_count , size = size , window = window, negative = negative , sg = sg, hs = hs, workers = workers)
-        self.p2v_model = WordEmbeddingsKeyedVectors(self.w2v_model.trainables.layer1_size)
+        self.p2v_model = WordEmbeddingsKeyedVectors(self.w2v_model.vector_size)
         print(f'> running time : {time.time()-start:.3f}')
 
     def get_embedding(self,songs_tags):
