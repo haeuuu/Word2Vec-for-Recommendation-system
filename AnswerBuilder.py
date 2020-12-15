@@ -2,28 +2,24 @@ from util import *
 import os
 
 class AnswerBuilder:
-    def __init__(self,dir = ):
-        self.dir = dir
+    def __init__(self,test = True):
         self.goal = {'songs':100,'tags':10}
         self.answers = []
         self.only_base = 0
 
-    def register_questions(self,val_filename = 'val_questions.json'):
-        val = load_json(os.path.join(self.dir,val_filename))
+    def register_questions(self,val):
         self.val = {}
         for ply in val:
             self.val[ply['id']] = {'songs':ply['songs'], 'tags':ply['tags'], 'title':ply['plylst_title']}
 
-    def register_answers(self,ans_filename = 'val_answers.json'):
-        ans = load_json(os.path.join(self.dir,ans_filename))
+    def register_answers(self,ans):
         self.ans = {}
         for ply in ans:
             self.ans[ply['id']] = {'songs':ply['songs'], 'tags':ply['tags']}
 
-    def register_base_results(self, base_filename = 'base_results_gep.json'):
-        base = load_json(os.path.join(self.dir,base_filename))
+    def register_base_results(self, base_results):
         self.base_results = {}
-        for ply in base:
+        for ply in base_results:
             self.base_results[ply['id']] = {'songs':ply['songs'], 'tags':ply['tags']}
 
     def remove_seen(self, id, rec_results, attr):
@@ -40,8 +36,6 @@ class AnswerBuilder:
         return filtered_result
 
     def fill_up(self, id, rec_results, attr):
-        # base_result로 100 또는 10개가 되도록 채웁니다.
-
         fill = []
         fill_num = self.goal[attr] - len(rec_results)
 
@@ -99,11 +93,19 @@ class AnswerBuilder:
         })
 
 if __name__ == '__main__':
-    builder = AnswerBuilder()
-    builder.register_questions()
-    builder.register_answers()
-    builder.register_base_results()
+    # USAGE
+    from util import *
+    dir = r'C:\Users\haeyu\PycharmProjects\KakaoArena\arena_data'
 
+    train, val_que, val_ans = get_data(dir, test=True)
+    base_results = load_json(os.path.join(dir,'results','results_gep.json'))
+
+    builder = AnswerBuilder()
+    builder.register_questions(val_que)
+    builder.register_answers(val_ans)
+    builder.register_base_results(base_results)
+
+    # EXAMPLE
     from tqdm import tqdm
 
     builder.initialize()
