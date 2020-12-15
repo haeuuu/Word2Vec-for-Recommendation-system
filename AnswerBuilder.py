@@ -2,7 +2,7 @@ from util import *
 import os
 
 class AnswerBuilder:
-    def __init__(self,dir = '/content/drive/MyDrive/Melon-PL-Continuation/11월 수정중   카카오 아레나 (멜론 추천)/'):
+    def __init__(self,dir = ):
         self.dir = dir
         self.goal = {'songs':100,'tags':10}
         self.answers = []

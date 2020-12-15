@@ -1,7 +1,7 @@
 ### custom
 
-# ignore arena_data
-arena_data/
+# ignore pickle
+pickle/
 
 # ignore debug
 debug.log
