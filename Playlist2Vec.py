@@ -58,19 +58,21 @@ class Playlist2Vec:
 
         return ply_embedding
 
-    def build_p2v(self):
+    def build_p2v(self,normalize_song = True,normalize_tag = True,normalize_title = True):
         start = time.time()
         pids = []
         playlist_embedding = []
 
-        for pid in tqdm(self.id_to_songs.keys()):
-
-            ply_embedding = self.get_embedding(self.id_to_songs[str(pid)]+self.id_to_tags[str(pid)])
+        for pid in tqdm(self.corpus.keys()):
+            ply_embedding = self.get_embedding(self.id_to_songs[pid],normalize_song)
+            ply_embedding += self.get_embedding(self.id_to_tags[pid],normalize_tag)
+            ply_embedding += self.get_embedding(self.id_to_title[pid],normalize_title)
 
             if type(ply_embedding) != int: # 한 번이라도 update 되었다면
                 pids.append(str(pid)) # ! string !
                 playlist_embedding.append(ply_embedding)
 
+        self.p2v_model = WordEmbeddingsKeyedVectors(self.w2v_model.vector_size)
         self.p2v_model.add(pids,playlist_embedding)
 
         print(f'> running time : {time.time()-start:.3f}')
