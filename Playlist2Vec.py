@@ -5,6 +5,7 @@ import time
 
 from gensim.models import Word2Vec
 from gensim.models.keyedvectors import WordEmbeddingsKeyedVectors
+from gensim.parsing.preprocessing import preprocess_string, strip_punctuation,remove_stopwords, stem_text,strip_multiple_whitespaces
 
 class Playlist2Vec:
     def __init__(self,train, val):
@@ -18,15 +19,19 @@ class Playlist2Vec:
     def build_vocab(self):
         self.id_to_songs = {}
         self.id_to_tags = {}
-        self.corpus = []
+        self.id_to_title = {}
+        self.id_to_date = {}
+        self.corpus = {}
+
+        filters = [remove_stopwords, stem_text,strip_punctuation, strip_multiple_whitespaces]
 
         for ply in self.data:
-            self.id_to_songs[str(ply['id'])] = [*map(str,ply['songs'])]
-            self.id_to_tags[str(ply['id'])] = [*map(str,ply['tags'])]
+            pid = str(ply['id'])
+            self.id_to_songs[pid] = [*map(str,ply['songs'])] # list
+            self.id_to_tags[pid] = [*map(str,ply['tags'])] # list
+            self.id_to_title[pid] = preprocess_string(ply['plylst_title'], filters) # list
 
-            items = self.id_to_songs[str(ply['id'])] + self.id_to_tags[str(ply['id'])]
-            if len(items) > 1:
-                self.corpus.append(items)
+            self.corpus[pid] = self.id_to_songs[pid] + self.id_to_tags[pid] + self.id_to_title[pid]
 
         self.songs = set(chain.from_iterable(self.id_to_songs.values()))
         self.tags = set(chain.from_iterable(self.id_to_tags.values()))
@@ -37,26 +42,27 @@ class Playlist2Vec:
 
     def register_w2v(self, w2v_model):
         self.w2v_model = w2v_model
-        self.p2v_model = WordEmbeddingsKeyedVectors(self.w2v_model.vector_size)
 
-    def train_w2v(self, min_count = 3, size = 128, window = 210, negative = 5, sg = 1, hs = 0, workers = 1):
+    def train_w2v(self, min_count = 3, size = 128, window = 250, sg = 1,workers = 1):
         # workers = 1 ; for consistency
         start = time.time()
-        self.w2v_model = Word2Vec(sentences = self.corpus, min_count= min_count , size = size , window = window, negative = negative , sg = sg, hs = hs, workers = workers)
-        self.p2v_model = WordEmbeddingsKeyedVectors(self.w2v_model.vector_size)
+        self.w2v_model = Word2Vec(sentences = list(self.corpus.values()), min_count= min_count , size = size , window = window, sg = sg, workers = workers)
         print(f'> running time : {time.time()-start:.3f}')
 
-    def get_embedding(self,songs_tags):
-        items = list(filter(lambda x: x in self.w2v_model.wv.vocab, songs_tags))
+    def get_embedding(self,items,normalize = True):
+        items = list(filter(lambda x: x in self.w2v_model.wv.vocab, items))
 
         if len(items) == 0:
             return 0
 
-        ply_embedding = 0
+        embedding = 0
         for item in items:
-            ply_embedding += self.w2v_model.wv.get_vector(str(item))
+            embedding += self.w2v_model.wv.get_vector(item)
 
-        return ply_embedding
+        if normalize:
+            embedding /= len(items)
+
+        return embedding
 
     def build_p2v(self,normalize_song = True,normalize_tag = True,normalize_title = True):
         start = time.time()
