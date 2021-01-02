@@ -2,22 +2,25 @@ from util import *
 import os
 
 class AnswerBuilder:
-    def __init__(self,test = True):
+    def __init__(self):
         self.goal = {'songs':100,'tags':10}
         self.answers = []
         self.only_base = 0
 
-    def register_questions(self,val):
+    def register_questions(self,val_path):
+        val = load_json(val_path)
         self.val = {}
         for ply in val:
             self.val[ply['id']] = {'songs':ply['songs'], 'tags':ply['tags'], 'title':ply['plylst_title']}
 
-    def register_answers(self,ans):
+    def register_answers(self,ans_path):
+        ans = load_json(ans_path)
         self.ans = {}
         for ply in ans:
             self.ans[ply['id']] = {'songs':ply['songs'], 'tags':ply['tags']}
 
-    def register_base_results(self, base_results):
+    def register_base_results(self, base_results_path):
+        base_results = load_json(base_results_path)
         self.base_results = {}
         for ply in base_results:
             self.base_results[ply['id']] = {'songs':ply['songs'], 'tags':ply['tags']}
@@ -97,13 +100,15 @@ if __name__ == '__main__':
     from util import *
     dir = r'C:\Users\haeyu\PycharmProjects\KakaoArena\arena_data'
 
-    train, val_que, val_ans = get_data(dir, test=True)
-    base_results = load_json(os.path.join(dir,'results','results_gep.json'))
+    train_path = os.path.join(default_dir, r'orig/train.json')
+    val_que_path = os.path.join(default_dir, r'questions/val_questions.json')
+    val_ans_path = os.path.join(default_dir, r'answers/val_answers.json')
+    results_gep_path = os.path.join(default_dir, 'results', 'results_gep.json')
 
     builder = AnswerBuilder()
-    builder.register_questions(val_que)
-    builder.register_answers(val_ans)
-    builder.register_base_results(base_results)
+    builder.register_questions(val_que_path)
+    builder.register_answers(val_ans_path)
+    builder.register_base_results(results_gep_path)
 
     # EXAMPLE
     from tqdm import tqdm
