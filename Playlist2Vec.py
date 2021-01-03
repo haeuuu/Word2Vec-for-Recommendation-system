@@ -10,28 +10,29 @@ from gensim.parsing.preprocessing import preprocess_string, strip_punctuation,re
 
 class Playlist2Vec:
     def __init__(self, train_path, val_path):
+        """
+        Word2Vec Based Song/Tag Recommender
+        """
         self.train = load_json(train_path)
         self.val = load_json(val_path)
         self.data = load_json(train_path) + load_json(val_path)
 
         print('*** Build Vocab ***')
         self.build_vocab()
-        self.build_scores()
 
     def build_vocab(self):
         self.id_to_songs = {}
         self.id_to_tags = {}
         self.id_to_title = {}
-        self.id_to_date = {}
         self.corpus = {}
 
         filters = [remove_stopwords, stem_text, strip_punctuation, strip_multiple_whitespaces]
 
         for ply in self.data:
             pid = str(ply['id'])
-            self.id_to_songs[pid] = [*map(str, ply['songs'])]
-            self.id_to_tags[pid] = [*map(str, ply['tags'])]
-            self.id_to_title[pid] = preprocess_string(ply['plylst_title'], filters)
+            self.id_to_songs[pid] = [*map(str, ply['songs'])]  # list
+            self.id_to_tags[pid] = [*map(str, ply['tags'])]  # list
+            self.id_to_title[pid] = preprocess_string(ply['plylst_title'], filters)  # list
             ply['tags'].extend(self.id_to_title[pid])
 
             self.corpus[pid] = self.id_to_songs[pid] + self.id_to_tags[pid] + self.id_to_title[pid]
@@ -49,6 +50,10 @@ class Playlist2Vec:
         self.ratings_weighted = 5 * self.rating_builder.bm25_weight(self.ratings).tocsr()
 
     def get_score(self, pid):
+        """
+        :param pid: playlist id
+        :return: filtered items and scores ( default : bm25 )
+        """
         target = self.ratings_weighted[int(pid)]
         scores = target.data
         iids = target.indices
@@ -79,6 +84,12 @@ class Playlist2Vec:
         print(f'> running time : {time.time() - start:.3f}')
 
     def get_weighted_embedding(self, items, normalize=True, scores=None):
+        """
+        :param items: list of songs/tags
+        :param normalize: if True, embedding will be divided by sum of scores or length of items
+        :param scores: weights ( default : bm25 )
+        :return: embedding
+        """
         items = [str(item) for item in items if self.w2v_model.wv.vocab.get(item)]
 
         if not items:
@@ -96,7 +107,16 @@ class Playlist2Vec:
 
         return embedding
 
-    def build_p2v(self, normalize_song=True, normalize_tag=True, normalize_title=True, use_bm25=True):
+    def build_p2v(self, normalize_song=True, normalize_tag=True, normalize_title=True,
+                  song_weight=1, tag_weight=1,use_bm25=True):
+        """
+        :param normalize_song: if True, song embedding will be divided sum of scores.
+        :param normalize_tag: if True, tag embedding will be divided sum of scores.
+        :param normalize_title: if True, title embedding will be divided sum of scores.
+        :param song_weight: float
+        :param tag_weight: float
+        :param use_bm25: if True, scores will be bm25 weights else 1
+        """
         start = time.time()
         pids = []
         playlist_embedding = []
@@ -108,12 +128,14 @@ class Playlist2Vec:
 
             if use_bm25:
                 songs, song_scores, tags, tag_scores = self.get_score(pid)
-                ply_embedding += self.get_weighted_embedding(songs, normalize=normalize_song, scores=song_scores)
-                ply_embedding += self.get_weighted_embedding(tags, normalize=normalize_tag, scores=tag_scores)
+                ply_embedding += song_weight * self.get_weighted_embedding(songs, normalize=normalize_song,
+                                                                           scores=song_scores)
+                ply_embedding += tag_weight * self.get_weighted_embedding(tags, normalize=normalize_tag,
+                                                                          scores=tag_scores)
             else:
-                ply_embedding += self.get_weighted_embedding(self.id_to_songs[pid], normalize_song)
-                ply_embedding += self.get_weighted_embedding(self.id_to_tags[pid], normalize_tag)
-                ply_embedding += self.get_weighted_embedding(self.id_to_title[pid], normalize_title)
+                ply_embedding += song_weight * self.get_weighted_embedding(self.id_to_songs[pid], normalize_song)
+                ply_embedding += tag_weight * self.get_weighted_embedding(self.id_to_tags[pid], normalize_tag)
+                ply_embedding += tag_weight * self.get_weighted_embedding(self.id_to_title[pid], normalize_title)
 
             if type(ply_embedding) != int:  # 한 번이라도 update 되었다면
                 pids.append(str(pid))  # ! string !
@@ -125,10 +147,15 @@ class Playlist2Vec:
         print(f'> running time : {time.time() - start:.3f}')
         print(f'> Register (ply update) : {len(pids)} / {len(self.id_to_songs)}')
         val_ids = set([str(p["id"]) for p in self.val])
-        print(
-            f'> Only {len(val_ids - set(pids))} of validation set ( total : {len(val_ids)} ) can not find similar playlist in train set.')
+        print(f'> Only {len(val_ids - set(pids))} of validation set ( total : {len(val_ids)} ) can not find similar playlist in train set.')
 
     def recommend(self, pid, topn_for_tag, topn_for_song):
+        """
+        :param pid: playlist id
+        :param topn_for_tag: number of simliar playlists for tag recommendation
+        :param topn_for_song: number of simliar playlists for song recommendation
+        :return: recommended songs, recommended tags
+        """
         if self.p2v_model.vocab.get(str(pid)) is None:
             return [], []
         else:
@@ -147,17 +174,19 @@ class Playlist2Vec:
             return song_most_common, tag_most_common
 
 if __name__ == '__main__':
-    from util import get_data
     import pickle
     import os
 
-    dir = r'C:\Users\haeyu\PycharmProjects\KakaoArena\arena_data'
+    default_dir = r'C:\Users\haeyu\PycharmProjects\KakaoArena\arena_data'
 
-    train, val_que, _ = get_data(dir, test=True)
-    model = Playlist2Vec(train, val_que)
+    train_path = os.path.join(default_dir, r'orig/train.json')
+    val_que_path = os.path.join(default_dir, r'questions/val_questions.json')
 
-    with open(os.path.join(dir, 'model','w2v_128.pkl'), 'rb') as f:
+    model = Playlist2Vec(train_path, val_que_path)
+
+    with open(os.path.join(default_dir, 'model','w2v_128.pkl'), 'rb') as f:
         w2v_model = pickle.load(f)
 
     model.register_w2v(w2v_model)
-    model.build_p2v()
+    model.build_p2v(normalize_song = True, normalize_tag = True, normalize_title = True , song_weight = 1, tag_weight = 1 ,use_bm25 = False)
+    model.build_p2v(normalize_song = False, normalize_tag = True, normalize_title = True , song_weight = 1, tag_weight = 1 ,use_bm25 = True)
