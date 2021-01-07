@@ -1,7 +1,7 @@
 from collections import Counter
 from itertools import chain
 from tqdm import tqdm
-from weighted_ratings import Ratings
+from weighted_ratings import *
 import time
 
 from gensim.models import Word2Vec
@@ -17,7 +17,7 @@ class Playlist2Vec:
         self.val = load_json(val_path)
         self.data = load_json(train_path) + load_json(val_path)
 
-        print('*** Build Vocab ***')
+        print('Build Vocab ...')
         self.build_vocab()
 
     def build_vocab(self):
@@ -26,13 +26,16 @@ class Playlist2Vec:
         self.id_to_title = {}
         self.corpus = {}
 
-        filters = [remove_stopwords, stem_text, strip_punctuation, strip_multiple_whitespaces]
+        filter = Filter(set(chain.from_iterable([ply['tags'] for ply in self.data])))
+        preproccess = [remove_stopwords, stem_text, strip_punctuation, strip_multiple_whitespaces]
 
-        for ply in self.data:
+        for ply in tqdm(self.data):
             pid = str(ply['id'])
             self.id_to_songs[pid] = [*map(str, ply['songs'])]  # list
             self.id_to_tags[pid] = [*map(str, ply['tags'])]  # list
-            self.id_to_title[pid] = preprocess_string(ply['plylst_title'], filters)  # list
+            raw_title = preprocess_string(ply['plylst_title'], preproccess)
+            filtered_title = filter.extract_from_title(" ".join(raw_title))
+            self.id_to_title[pid] = raw_title + filtered_title
             ply['tags'].extend(self.id_to_title[pid])
 
             self.corpus[pid] = self.id_to_songs[pid] + self.id_to_tags[pid] + self.id_to_title[pid]
