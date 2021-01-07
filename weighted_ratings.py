@@ -2,6 +2,7 @@ import copy
 import numpy as np
 from itertools import chain
 from scipy.sparse import coo_matrix, csr_matrix
+from math import log
 
 class Ratings:
     """
@@ -70,3 +71,70 @@ class Ratings:
         X.data = X.data * (K1 + 1.0) / (K1 * length_norm[X.row] + X.data) * idf[X.col]
 
         return X
+
+class Node:
+    def __init__(self, value):
+        self.value = value
+        self.children = {}
+        self.is_terminal = False
+
+class Filter:
+    def __init__(self, items):
+        self.items = items
+        self.head = Node(None)
+
+        print("DB 구성중입니다 ...")
+        for item in items:
+            self.insert(item)
+        print("입력 완료 ...")
+
+    def insert(self, query):
+        curr_node = self.head
+
+        for q in query:
+            if curr_node.children.get(q) is None:
+                curr_node.children[q] = Node(q)
+            curr_node = curr_node.children[q]
+        curr_node.is_terminal = query
+
+    def extract(self, query, biggest_token = True):
+        """
+        :param query: str(word)
+        :param biggest_token: True인 경우, word에서 찾을 수 있는 가장 큰 tag를 return.
+        :return: list of tags
+        """
+        start, end = 0,0
+        query += '*'
+        curr_node = self.head
+        prev_node = self.head
+
+        extracted_tags = []
+        while end < len(query):
+            curr_node = curr_node.children.get(query[end])
+            if curr_node is None:
+                if biggest_token and prev_node.is_terminal:
+                    extracted_tags.append(prev_node.is_terminal)
+                    start = end-1
+                    prev_node = self.head
+                start += 1
+                end = start
+                curr_node = self.head
+            else:
+                if not biggest_token and curr_node.is_terminal:
+                    extracted_tags.append(curr_node.is_terminal)
+                elif curr_node.is_terminal:
+                    prev_node = curr_node
+                end += 1
+
+        return  extracted_tags
+
+    def extract_from_title(self, title, biggest_token = True):
+        """
+        :param title: str(title)
+        :param biggest_token: True인 경우, word에서 찾을 수 있는 가장 큰 tag를 return.
+        :return: list of tags
+        """
+        tags = []
+        for word in title.split():
+            tags.extend(self.extract(word,biggest_token))
+        return tags
