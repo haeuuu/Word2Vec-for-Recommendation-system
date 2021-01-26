@@ -1,8 +1,8 @@
 # Word2Vec 기반의 Recommendation system
 
-> 함께 등장하는 song, tag는 서로 관련이 있을텐데 어떻게 학습시키면 좋을까?
+> 함께 등장하는 song, tag는 서로 관련이 있을텐데 ! 어떻게 학습시키면 좋을까?
 >
-> Word2vec을 이용하여 song과 tag의 정보를 학습합니다.
+> Word2vec을 이용하여 song과 tag를 한 문장에 등장하는 단어로 보자 !
 
 item 각각의 embedding을 학습하고, 이를 더하여 playlist embedding을 생성합니다.
 
@@ -25,6 +25,10 @@ negative sample은 5개만 추출한다.
 학습된 song, tag embedding을 모두 더하여 playlist embedding을 생성한다.
 
 ex ) `{"songs": ['밤편지','푸르던', '거짓말처럼'] , ['잔잔한','사랑']` 의 embedding은 `vec_밤편지 + ... + vec_사랑`
+
+
+
+이 때 BM25로 계산된 score를 활용한다.
 
 
 

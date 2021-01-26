@@ -69,8 +69,8 @@ class AnswerBuilder:
         # [preporcessing] sid가 str형인 경우 변경
         rec_songs = list(map(int,rec_songs))
 
-        # [preprocessing] 중복이 있는 경우 제거
-        # rec_songs = sorted(set(rec_songs), key = rec_songs.index)
+        # [preprocessing] 중복이 있는 경우 제거 ('7','07'이 담기는 경우 추천 결과에 중복이 생김)
+        rec_songs = sorted(set(rec_songs), key = rec_songs.index)
         # rec_tags = sorted(set(rec_tags), key = rec_tags.index)
 
         songs = self.remove_seen(id,rec_songs,'songs')
