@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter, defaultdict
 from itertools import chain
 from tqdm import tqdm
 from weighted_ratings import *
@@ -47,34 +47,31 @@ class Playlist2Vec:
         print(f'> Songs + Tags = {len(self.songs)} + {len(self.tags)} = {len(self.songs) + len(self.tags)}')
         print("> Playlist Id Type :", type(list(self.id_to_songs.keys())[0]), type(list(self.id_to_tags.keys())[0]))
 
-    def build_scores(self):
+    def build_bm25(self):
+
+        print('Build bm25 ...')
         self.rating_builder = Ratings(self.data)
-        self.ratings = self.rating_builder.build_coo()
+        self.ratings = self.rating_builder.build_coo(w2v_model)
         self.ratings_weighted = 5 * self.rating_builder.bm25_weight(self.ratings).tocsr()
 
-    def get_score(self, pid):
-        """
-        :param pid: playlist id
-        :return: filtered items and scores ( default : bm25 )
-        """
-        target = self.ratings_weighted[int(pid)]
-        scores = target.data
-        iids = target.indices
-        songs, song_scores, tags, tag_scores = [], [], [], []
+        self.bm25 = defaultdict(lambda: {'songs': [[], []], 'tags': [[],[]]})
+        # {pid : {'songs' : [ [song1, song2, ... ], [score1, score2, ... ] ], 'tags' : [ [tag1, tag2, ...], [score1 , score2 , ...] ] } , ... }
 
-        for iid, score in zip(iids, scores):
-            if iid >= self.rating_builder.num_song:
-                tag = self.rating_builder.id2tag[iid - self.rating_builder.num_song]
-                if self.w2v_model.wv.vocab.get(tag):
-                    tags.append(tag)
-                    tag_scores.append(score)
-            else:
-                song = str(iid)
-                if self.w2v_model.wv.vocab.get(song):
-                    songs.append(song)
-                    song_scores.append(score)
+        for pid in tqdm(self.corpus.keys()):
 
-        return songs, song_scores, tags, tag_scores
+            target = self.ratings_weighted[int(pid)]
+            scores = target.data
+            iids = target.indices
+
+            for iid, score in zip(iids, scores):
+                if iid >= self.rating_builder.num_song:
+                    tag = self.rating_builder.id2tag[iid - self.rating_builder.num_song]
+                    self.bm25[pid]['tags'][0].append(tag)
+                    self.bm25[pid]['tags'][1].append(score)
+                else:
+                    song = str(iid)
+                    self.bm25[pid]['songs'][0].append(song)
+                    self.bm25[pid]['songs'][1].append(score)
 
     def register_w2v(self, w2v_model):
         self.w2v_model = w2v_model
@@ -110,16 +107,16 @@ class Playlist2Vec:
 
         return embedding
 
-    def build_p2v(self, normalize_song=True, normalize_tag=True, normalize_title=True,
-                  song_weight=1, tag_weight=1,use_bm25=True):
+    def build_p2v(self, normalize_song=True, normalize_tag=True,
+                  song_weight=1, tag_weight=1,mode = 'bm25'):
         """
         :param normalize_song: if True, song embedding will be divided sum of scores.
         :param normalize_tag: if True, tag embedding will be divided sum of scores.
         :param normalize_title: if True, title embedding will be divided sum of scores.
         :param song_weight: float
         :param tag_weight: float
-        :param use_bm25: if True, scores will be bm25 weights else 1
         """
+
         start = time.time()
         pids = []
         playlist_embedding = []
