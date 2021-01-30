@@ -83,15 +83,14 @@ class Playlist2Vec:
                                   sg=sg, workers=workers)
         print(f'> running time : {time.time() - start:.3f}')
 
-    def get_weighted_embedding(self, items, normalize=True, scores=None):
+    def get_weighted_embedding(self, items , normalize=True, scores = None):
         """
+        items의 embedding을 scores에 따라 weighted sum한 결과를 return합니다.
         :param items: list of songs/tags
-        :param normalize: if True, embedding will be divided by sum of scores or length of items
-        :param scores: weights ( default : bm25 )
-        :return: embedding
+        :param normalize: if True, embedding vector will be divided by sum of scores or length of items
+        :param mode: bm25 or consistency ( default : bm25 )
+        :return: embedding vector
         """
-        items = [str(item) for item in items if self.w2v_model.wv.vocab.get(item)]
-
         if not items:
             return 0
 
@@ -108,7 +107,7 @@ class Playlist2Vec:
         return embedding
 
     def build_p2v(self, normalize_song=True, normalize_tag=True,
-                  song_weight=1, tag_weight=1,mode = 'consistency'):
+                  song_weight=1, tag_weight=1,mode = 'bm25'):
         """
         :param normalize_song: if True, song embedding will be divided sum of scores.
         :param normalize_tag: if True, tag embedding will be divided sum of scores.
