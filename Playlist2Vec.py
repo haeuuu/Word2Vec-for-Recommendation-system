@@ -108,7 +108,7 @@ class Playlist2Vec:
         return embedding
 
     def build_p2v(self, normalize_song=True, normalize_tag=True,
-                  song_weight=1, tag_weight=1,mode = 'bm25'):
+                  song_weight=1, tag_weight=1,mode = 'consistency'):
         """
         :param normalize_song: if True, song embedding will be divided sum of scores.
         :param normalize_tag: if True, tag embedding will be divided sum of scores.
@@ -116,26 +116,34 @@ class Playlist2Vec:
         :param song_weight: float
         :param tag_weight: float
         """
-
         start = time.time()
         pids = []
         playlist_embedding = []
-        if use_bm25:
-            self.build_scores()
+
+        if mode == 'bm25':
+            self.build_bm25()
+        elif mode == 'consistency':
+            self.build_consistency()
+        else:
+            songs_score = None
+            tags_score = None
 
         for pid in tqdm(self.corpus.keys()):
             ply_embedding = 0
 
-            if use_bm25:
-                songs, song_scores, tags, tag_scores = self.get_score(pid)
-                ply_embedding += song_weight * self.get_weighted_embedding(songs, normalize=normalize_song,
-                                                                           scores=song_scores)
-                ply_embedding += tag_weight * self.get_weighted_embedding(tags, normalize=normalize_tag,
-                                                                          scores=tag_scores)
+            if mode == 'bm25':
+                songs, songs_score = self.bm25[pid]['songs']
+                tags, tags_score = self.bm25[pid]['tags']
             else:
-                ply_embedding += song_weight * self.get_weighted_embedding(self.id_to_songs[pid], normalize_song)
-                ply_embedding += tag_weight * self.get_weighted_embedding(self.id_to_tags[pid], normalize_tag)
-                ply_embedding += tag_weight * self.get_weighted_embedding(self.id_to_title[pid], normalize_title)
+                songs = [song for song in self.id_to_songs[pid] if self.w2v_model.wv.vocab.get(song)]
+                tags = [tag for tag in self.id_to_tags[pid] + self.id_to_title[pid] if self.w2v_model.wv.vocab.get(tag)]
+
+                if mode == 'consistency':
+                    songs_score = [self.consistency[song] for song in songs]
+                    tags_score = [self.consistency[tag] for tag in tags]
+
+            ply_embedding += song_weight * self.get_weighted_embedding(songs, normalize_song, scores = songs_score)
+            ply_embedding += tag_weight * self.get_weighted_embedding(tags, normalize_tag, scores = tags_score)
 
             if type(ply_embedding) != int:  # 한 번이라도 update 되었다면
                 pids.append(str(pid))  # ! string !
