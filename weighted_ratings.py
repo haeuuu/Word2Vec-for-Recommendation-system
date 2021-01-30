@@ -27,7 +27,7 @@ class Ratings:
     def get_raw_tag(self, tids):
         return [self.id2tag[tid] for tid in tids]
 
-    def build_coo(self):
+    def build_coo(self, w2v_model):
         """
         user id와 item id가 연속적이지 않다면 0인 row가 포함된다.
         ratings의 크기는 (max(uid)+1, max(iid)+1)이 된다.
@@ -36,10 +36,15 @@ class Ratings:
         iids = []
 
         for ply in self.data:
-            rep = len(ply['songs']) + len(ply['tags'])
-            iids.extend(ply['songs'])
+            trained_songs = [song for song in ply['songs'] if w2v_model.wv.vocab.get(str(song))]
+            trained_tags = [tag for tag in ply['tags'] if w2v_model.wv.vocab.get(tag)]
+
+            rep = len(trained_songs) + len(trained_tags)
+
+            iids.extend(trained_songs)
             iids.extend(self.tag2id[t] + self.num_song for t in
-                        ply['tags'])  # tag2id는 0부터 시작하므로 self.tag2id[t] + self.num_song 임에 주의
+                        trained_tags)  # tag2id는 0부터 시작하므로 self.tag2id[t] + self.num_song 임에 주의
+
             pids.extend([ply['id']] * rep)
 
         scores = [1] * len(pids)
