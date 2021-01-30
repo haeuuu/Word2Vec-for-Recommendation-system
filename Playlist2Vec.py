@@ -3,6 +3,7 @@ from itertools import chain
 from tqdm import tqdm
 from weighted_ratings import *
 import time
+import numpy as np
 
 from gensim.models import Word2Vec
 from gensim.models.keyedvectors import WordEmbeddingsKeyedVectors
@@ -47,6 +48,16 @@ class Playlist2Vec:
         print(f'> Songs + Tags = {len(self.songs)} + {len(self.tags)} = {len(self.songs) + len(self.tags)}')
         print("> Playlist Id Type :", type(list(self.id_to_songs.keys())[0]), type(list(self.id_to_tags.keys())[0]))
 
+    def register_w2v(self, w2v_model):
+        self.w2v_model = w2v_model
+
+    def train_w2v(self, min_count=3, size=128, window=250, sg=1, workers=1):
+        # workers = 1 ; for consistency
+        start = time.time()
+        self.w2v_model = Word2Vec(sentences=list(self.corpus.values()), min_count=min_count, size=size, window=window,
+                                  sg=sg, workers=workers)
+        print(f'> running time : {time.time() - start:.3f}')
+
     def build_bm25(self):
 
         print('Build bm25 ...')
@@ -73,15 +84,38 @@ class Playlist2Vec:
                     self.bm25[pid]['songs'][0].append(song)
                     self.bm25[pid]['songs'][1].append(score)
 
-    def register_w2v(self, w2v_model):
-        self.w2v_model = w2v_model
+    def build_consistency(self, topn = 3):
+        """
+        co-occurrence를 계산하고 consistency를 얻는다!
+        """
 
-    def train_w2v(self, min_count=3, size=128, window=250, sg=1, workers=1):
-        # workers = 1 ; for consistency
-        start = time.time()
-        self.w2v_model = Word2Vec(sentences=list(self.corpus.values()), min_count=min_count, size=size, window=window,
-                                  sg=sg, workers=workers)
-        print(f'> running time : {time.time() - start:.3f}')
+        print('Calculate co-occurrence ...')
+
+        co_occur = defaultdict(Counter)
+        for items in tqdm(self.corpus.values()):
+            cnt = Counter(items)
+            for curr in items:
+                co_occur[curr].update(cnt)
+
+        for tag, cnt in tqdm(co_occur.items()):
+            del cnt[tag]
+
+        print('Get consistency ...')
+
+        self.consistency = {}
+        for query in tqdm(co_occur.keys()):
+            sims = []
+            for tag, sim in co_occur[query].most_common(topn):
+                try:
+                    sims.append((tag,self.w2v_model.similarity(query, tag)))
+                except KeyError:
+                    continue
+
+            sims_mean = sum([s for t,s in sims[:topn]])/topn
+            exp_mean = np.exp(sims_mean*5)
+            self.consistency[query] = exp_mean
+
+        del co_occur
 
     def get_weighted_embedding(self, items , normalize=True, scores = None):
         """
