@@ -10,6 +10,12 @@ song과 tag를 단어로, playlist를 문장으로 보고 word2vec을 학습시�
 
 나와 가장 유사한 주변 playlist k개를 추출하여 노래와 태그를 추천합니다.
 
+```
+# 2021.02.10 현재 성능
+Music nDCG: 0.220859
+Tag nDCG: 0.512648
+```
+
 
 
 ## 1 ) item2vec 학습
